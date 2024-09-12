@@ -1,5 +1,5 @@
 plugins {
-    alias(libs.plugins.shadow)
+    id("io.github.goooler.shadow") version "8.1.7"
     alias(libs.plugins.pluginyml)
     alias(libs.plugins.runpaper)
 }
@@ -20,34 +20,6 @@ dependencies {
 
 description = "BloodNight-core"
 val shadebase = project.group as String + ".bloodnight."
-
-publishData {
-    addBuildData()
-    useEldoNexusRepos()
-    publishComponent("java")
-}
-
-publishing {
-    publications {
-        create<MavenPublication>("maven") {
-            publishData.configurePublication(this)
-        }
-    }
-
-    repositories {
-        maven {
-            name = "EldoNexus"
-            url = uri(publishData.getRepository())
-
-            authentication {
-                credentials(PasswordCredentials::class) {
-                    username = System.getenv("NEXUS_USERNAME")
-                    password = System.getenv("NEXUS_PASSWORD")
-                }
-            }
-        }
-    }
-}
 
 tasks {
     shadowJar {
@@ -82,7 +54,8 @@ bukkit {
     version = publishData.getVersion(true)
     main = "de.eldoria.bloodnight.core.BloodNight"
     website = "https://www.spigotmc.org/resources/85095"
-    apiVersion = "1.16"
+    apiVersion = "1.21"
+    foliaSupported = true
     softDepend = listOf("Multiverse-Core", "Hyperverse", "MythicMobs", "PlaceholderAPI")
 
     commands {

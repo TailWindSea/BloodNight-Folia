@@ -69,7 +69,7 @@ public class MobManager implements Listener {
         this.nightManager = nightManager;
         this.configuration = configuration;
         specialMobManager = new SpecialMobManager(nightManager, configuration);
-        specialMobManager.runTaskTimer(BloodNight.getInstance(), 100, 1);
+        specialMobManager.runAtFixedRate(BloodNight.getInstance(), 100, 1);
         BloodNight.getInstance().registerListener(specialMobManager);
         delayedActions = DelayedActions.start(BloodNight.getInstance());
     }

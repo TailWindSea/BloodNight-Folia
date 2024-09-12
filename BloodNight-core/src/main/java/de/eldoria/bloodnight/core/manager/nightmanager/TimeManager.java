@@ -5,6 +5,7 @@ import de.eldoria.bloodnight.config.worldsettings.NightSettings;
 import de.eldoria.bloodnight.config.worldsettings.WorldSettings;
 import de.eldoria.bloodnight.core.manager.nightmanager.util.BloodNightData;
 import de.eldoria.bloodnight.core.manager.nightmanager.util.NightUtil;
+import de.eldoria.bloodnight.util.schedulers.FoliaRunnable;
 import de.eldoria.eldoutilities.utils.ObjUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
@@ -18,106 +19,107 @@ import org.bukkit.scheduler.BukkitRunnable;
 import java.util.HashMap;
 import java.util.Map;
 
-public class TimeManager extends BukkitRunnable implements Listener {
-    private final Configuration configuration;
-    private final NightManager nightManager;
-    /**
-     * Map contains for every active world a boolean if it is currently night.
-     */
-    private final Map<String, Boolean> timeState = new HashMap<>();
-    private final Map<String, Double> customTimes = new HashMap<>();
-    private boolean ignoreSkip;
-    // <--- World consistency ---> //
+public class TimeManager extends FoliaRunnable implements Listener {
+  private final Configuration configuration;
+  private final NightManager nightManager;
+  /**
+   * Map contains for every active world a boolean if it is currently night.
+   */
+  private final Map<String, Boolean> timeState = new HashMap<>();
+  private final Map<String, Double> customTimes = new HashMap<>();
+  private boolean ignoreSkip;
+  // <--- World consistency ---> //
 
 
-    public TimeManager(Configuration configuration, NightManager nightManager) {
-        this.configuration = configuration;
-        this.nightManager = nightManager;
+  public TimeManager(Configuration configuration, NightManager nightManager) {
+    super(Bukkit.getGlobalRegionScheduler());
+    this.configuration = configuration;
+    this.nightManager = nightManager;
+  }
+
+  @EventHandler
+  public void onWorldLoad(WorldLoadEvent event) {
+    calcualteWorldState(event.getWorld());
+  }
+
+  // <--- Time consistency ---> //
+
+  /**
+   * Recalulate time state for immediate impact
+   *
+   * @param event time skip event
+   */
+  @EventHandler(priority = EventPriority.MONITOR)
+  public void onTimeSkip(TimeSkipEvent event) {
+    if (ignoreSkip) {
+      ignoreSkip = false;
+      return;
+    }
+    customTimes.computeIfPresent(event.getWorld().getName(), (k, v) -> v + event.getSkipAmount());
+  }
+
+  @Override
+  public void run() {
+    for (World observedWorld : Bukkit.getWorlds()) {
+      calcualteWorldState(observedWorld);
     }
 
-    @EventHandler
-    public void onWorldLoad(WorldLoadEvent event) {
-        calcualteWorldState(event.getWorld());
+    refreshTime();
+  }
+
+
+  private void calcualteWorldState(World world) {
+    boolean current = NightUtil.isNight(world, configuration.getWorldSettings(world));
+    boolean old = timeState.getOrDefault(world.getName(), !current);
+
+    if (current == old) {
+      return;
     }
 
-    // <--- Time consistency ---> //
+    timeState.put(world.getName(), current);
 
-    /**
-     * Recalulate time state for immediate impact
-     *
-     * @param event time skip event
-     */
-    @EventHandler(priority = EventPriority.MONITOR)
-    public void onTimeSkip(TimeSkipEvent event) {
-        if (ignoreSkip) {
-            ignoreSkip = false;
-            return;
+    if (current) {
+      // A new night has begun.
+      nightManager.startNight(world);
+      return;
+    }
+
+    if (nightManager.isBloodNightActive(world)) {
+      // A blood night has ended.
+      nightManager.endNight(world);
+    }
+  }
+
+  private void refreshTime() {
+    for (Map.Entry<World, BloodNightData> entry : nightManager.getBloodWorldsMap().entrySet()) {
+      World world = entry.getKey();
+      WorldSettings settings = configuration.getWorldSettings(world.getName());
+      NightSettings ns = settings.getNightSettings();
+      if (ns.isCustomNightDuration()) {
+        double calcTicks = NightUtil.getNightTicksPerTick(world, settings);
+
+        double time = customTimes.compute(world.getName(),
+                (key, old) -> (old == null ? world.getFullTime() : old) + calcTicks);
+
+        long newTime = Math.round(time);
+        if (world.getFullTime() != newTime) {
+          ignoreSkip = true;
+          world.setFullTime(newTime);
         }
-        customTimes.computeIfPresent(event.getWorld().getName(), (k, v) -> v + event.getSkipAmount());
+      }
+
+      BloodNightData bloodNightData = entry.getValue();
+      ObjUtil.nonNull(bloodNightData.getBossBar(), bossBar -> {
+        bossBar.progress(NightUtil.getNightProgress(world, configuration.getWorldSettings(world)));
+      });
     }
+  }
 
-    @Override
-    public void run() {
-        for (World observedWorld : Bukkit.getWorlds()) {
-            calcualteWorldState(observedWorld);
-        }
+  public void removeCustomTime(World world) {
+    customTimes.remove(world.getName());
+  }
 
-        refreshTime();
-    }
-
-
-    private void calcualteWorldState(World world) {
-        boolean current = NightUtil.isNight(world, configuration.getWorldSettings(world));
-        boolean old = timeState.getOrDefault(world.getName(), !current);
-
-        if (current == old) {
-            return;
-        }
-
-        timeState.put(world.getName(), current);
-
-        if (current) {
-            // A new night has begun.
-            nightManager.startNight(world);
-            return;
-        }
-
-        if (nightManager.isBloodNightActive(world)) {
-            // A blood night has ended.
-            nightManager.endNight(world);
-        }
-    }
-
-    private void refreshTime() {
-        for (Map.Entry<World, BloodNightData> entry : nightManager.getBloodWorldsMap().entrySet()) {
-            World world = entry.getKey();
-            WorldSettings settings = configuration.getWorldSettings(world.getName());
-            NightSettings ns = settings.getNightSettings();
-            if (ns.isCustomNightDuration()) {
-                double calcTicks = NightUtil.getNightTicksPerTick(world, settings);
-
-                double time = customTimes.compute(world.getName(),
-                        (key, old) -> (old == null ? world.getFullTime() : old) + calcTicks);
-
-                long newTime = Math.round(time);
-                if (world.getFullTime() != newTime) {
-                    ignoreSkip = true;
-                    world.setFullTime(newTime);
-                }
-            }
-
-            BloodNightData bloodNightData = entry.getValue();
-            ObjUtil.nonNull(bloodNightData.getBossBar(), bossBar -> {
-                bossBar.progress(NightUtil.getNightProgress(world, configuration.getWorldSettings(world)));
-            });
-        }
-    }
-
-    public void removeCustomTime(World world) {
-        customTimes.remove(world.getName());
-    }
-
-    public void reload() {
-        timeState.clear();
-    }
+  public void reload() {
+    timeState.clear();
+  }
 }
