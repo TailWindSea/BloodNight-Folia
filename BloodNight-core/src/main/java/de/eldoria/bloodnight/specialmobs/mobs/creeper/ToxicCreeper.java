@@ -18,7 +18,7 @@ public class ToxicCreeper extends AbstractCreeper {
 
     @Override
     public void tick() {
-        SpecialMobUtil.spawnParticlesAround(getBaseEntity().getLocation(), Particle.REDSTONE, new Particle.DustOptions(Color.GREEN, 2), 5);
+        SpecialMobUtil.spawnParticlesAround(getBaseEntity().getLocation(), Particle.DUST, new Particle.DustOptions(Color.GREEN, 2), 5);
     }
 
     @Override

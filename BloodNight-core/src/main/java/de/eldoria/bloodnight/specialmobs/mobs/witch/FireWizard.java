@@ -25,7 +25,7 @@ public class FireWizard extends AbstractWitch {
     public void tick() {
         EntityEquipment equipment = getBaseEntity().getEquipment();
         equipment.setItemInMainHand(new ItemStack(Material.FIRE_CHARGE));
-        SpecialMobUtil.spawnParticlesAround(getBaseEntity(), Particle.DRIP_LAVA, 5);
+        SpecialMobUtil.spawnParticlesAround(getBaseEntity(), Particle.DRIPPING_LAVA, 5);
         if (canShoot(5)) {
             SpecialMobUtil.launchProjectileOnTarget(getBaseEntity(), LargeFireball.class, 4);
             shot();

@@ -1,6 +1,6 @@
 plugins {
     id("de.eldoria.library-conventions")
-    id("com.github.johnrengelman.shadow") version "8.1.1"
+    id("com.gradleup.shadow") version "8.3.0"
 }
 
 dependencies {
@@ -35,28 +35,6 @@ publishData {
     addBuildData()
     useEldoNexusRepos()
     publishComponent("java")
-}
-
-publishing {
-    publications {
-        create<MavenPublication>("maven") {
-            publishData.configurePublication(this)
-        }
-    }
-
-    repositories {
-        maven {
-            name = "EldoNexus"
-            url = uri(publishData.getRepository())
-
-            authentication {
-                credentials(PasswordCredentials::class) {
-                    username = System.getenv("NEXUS_USERNAME")
-                    password = System.getenv("NEXUS_PASSWORD")
-                }
-            }
-        }
-    }
 }
 
 tasks {
